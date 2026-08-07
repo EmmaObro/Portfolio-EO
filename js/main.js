@@ -2,34 +2,10 @@ const header = document.querySelector("[data-header]");
 const menuButton = document.querySelector(".menu-toggle");
 const navigation = document.querySelector(".main-nav");
 const backToTop = document.querySelector("[data-back-to-top]");
+const navLinks = [...document.querySelectorAll('.main-nav a[href^="#"]')];
 
 document.querySelector("[data-current-year]").textContent =
   new Date().getFullYear();
-
-const cvTimeline = document.querySelector("[data-cv-timeline]");
-if (cvTimeline) {
-  cvTimeline.innerHTML = `
-    <li>
-      <span>En cours</span>
-      <h3>Licence G&eacute;nie Logiciel</h3>
-      <p>&Eacute;cole Sup&eacute;rieure de l&rsquo;Enseignement Technique et Commercial (ESETEC).</p>
-    </li>
-    <li>
-      <span>Projet web</span>
-      <h3>R&eacute;sidence La Paix</h3>
-      <p>D&eacute;veloppement d&rsquo;un site vitrine avec pr&eacute;sentation des services, r&eacute;servation de chambres et de tables, et optimisation de l&rsquo;exp&eacute;rience utilisateur. Technologies : PHP, CodeIgniter, HTML, CSS, Bootstrap et JavaScript.</p>
-    </li>
-    <li>
-      <span>Projet personnel</span>
-      <h3>BRIDGE</h3>
-      <p>Conception no-code d&rsquo;un site pour une agence &eacute;v&eacute;nementielle de football : web design, organisation du contenu et identit&eacute; num&eacute;rique avec Softr.</p>
-    </li>
-    <li>
-      <span>Entrepreneuriat</span>
-      <h3>Design et personnalisation d&rsquo;ordinateurs</h3>
-      <p>Cr&eacute;ation visuelle, relation client et r&eacute;solution de probl&egrave;mes techniques dans le cadre d&rsquo;une activit&eacute; personnelle.</p>
-    </li>`;
-}
 
 menuButton?.addEventListener("click", () => {
   const isOpen = menuButton.getAttribute("aria-expanded") === "true";
@@ -47,6 +23,9 @@ navigation?.querySelectorAll("a").forEach((link) =>
 const updateScrollState = () => {
   header?.classList.toggle("is-scrolled", window.scrollY > 8);
   backToTop?.classList.toggle("is-visible", window.scrollY > 500);
+  const scrollableHeight = document.documentElement.scrollHeight - window.innerHeight;
+  const progress = scrollableHeight > 0 ? window.scrollY / scrollableHeight : 0;
+  header?.style.setProperty("--scroll-progress", String(Math.min(progress, 1)));
 };
 window.addEventListener("scroll", updateScrollState, { passive: true });
 updateScrollState();
@@ -65,51 +44,61 @@ const observer = new IntersectionObserver(
   },
   { threshold: 0.12 },
 );
-const plastikHubCard = [...document.querySelectorAll(".project-card")].find(
-  (card) => card.querySelector("h3")?.textContent.trim() === "PlastikHub",
-);
-
-if (plastikHubCard) {
-  const [designLink, demoLink] = plastikHubCard.querySelectorAll(
-    ".project-links a",
-  );
-  const figmaLinks = [
-    "https://www.figma.com/design/I2X9kHl30mlGCvdRow5LFO/plastikHub?node-id=106-2&t=e8j9tSNqVYqqXcK0-1",
-    "https://www.figma.com/proto/I2X9kHl30mlGCvdRow5LFO/plastikHub?node-id=106-2&t=e8j9tSNqVYqqXcK0-1",
-  ];
-
-  [designLink, demoLink].forEach((link, index) => {
-    link.href = figmaLinks[index];
-    link.target = "_blank";
-    link.rel = "noreferrer";
-    link.removeAttribute("data-placeholder-link");
-  });
-}
-
 document
   .querySelectorAll(".reveal")
-  .forEach((element) => observer.observe(element));
+  .forEach((element, index) => {
+    element.style.setProperty("--reveal-delay", `${(index % 4) * 70}ms`);
+    observer.observe(element);
+  });
+
+const sectionObserver = new IntersectionObserver(
+  (entries) => {
+    const activeEntry = entries
+      .filter((entry) => entry.isIntersecting)
+      .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+    if (!activeEntry) return;
+
+    navLinks.forEach((link) =>
+      link.classList.toggle("is-active", link.getAttribute("href") === `#${activeEntry.target.id}`),
+    );
+  },
+  { rootMargin: "-35% 0px -55% 0px", threshold: [0, 0.2, 0.6] },
+);
+
+document.querySelectorAll("main > section[id]").forEach((section) => sectionObserver.observe(section));
+
+if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+  document
+    .querySelectorAll(".skill-card, .project-card, .career-card")
+    .forEach((card) => {
+      card.addEventListener("pointermove", (event) => {
+        if (event.pointerType === "touch") return;
+        const bounds = card.getBoundingClientRect();
+        const tiltX = ((event.clientY - bounds.top) / bounds.height - 0.5) * -3;
+        const tiltY = ((event.clientX - bounds.left) / bounds.width - 0.5) * 3;
+        card.style.transform = `perspective(800px) rotateX(${tiltX}deg) rotateY(${tiltY}deg) translateY(-0.35rem)`;
+      });
+      card.addEventListener("pointerleave", () => {
+        card.style.transform = "";
+      });
+    });
+}
 
 document.querySelectorAll("[data-placeholder-link]").forEach((link) =>
   link.addEventListener("click", (event) => {
     event.preventDefault();
-    window.alert(
-      "Le lien sera ajouté dès que tu me transmettras l’adresse GitHub ou la démo du projet.",
-    );
+    window.alert("Pas encore disponible.");
   }),
 );
 
 document
   .querySelector("[data-contact-form]")
   ?.addEventListener("submit", (event) => {
-    event.preventDefault();
     const form = event.currentTarget;
     const status = form.querySelector(".form-status");
     if (!form.checkValidity()) {
+      event.preventDefault();
       status.textContent = "Merci de compléter correctement tous les champs.";
       form.reportValidity();
-      return;
     }
-    status.textContent =
-      "Le formulaire est prêt. Il sera relié à un service d’envoi après ton choix.";
   });
